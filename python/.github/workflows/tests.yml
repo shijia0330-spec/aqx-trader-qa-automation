@@ -1,0 +1,101 @@
+name: AQX Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_trading:
+        description: Run tests that create demo orders
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  safe-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run non-trading tests
+        env:
+          AQX_BASE_URL: ${{ secrets.AQX_BASE_URL }}
+          AQX_LOGIN: ${{ secrets.AQX_LOGIN }}
+          AQX_PASSWORD: ${{ secrets.AQX_PASSWORD }}
+        run: |
+          mkdir -p test-results
+          pytest -m "not trading" \
+            --junitxml=test-results/junit.xml
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safe-test-results
+          path: python/test-results/
+          if-no-files-found: ignore
+
+  trading-tests:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_trading }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    concurrency:
+      group: aqx-demo-trading-account
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run complete trading suite
+        env:
+          AQX_BASE_URL: ${{ secrets.AQX_BASE_URL }}
+          AQX_LOGIN: ${{ secrets.AQX_LOGIN }}
+          AQX_PASSWORD: ${{ secrets.AQX_PASSWORD }}
+          AQX_ALLOW_TRADING: "1"
+        run: |
+          mkdir -p test-results
+          pytest --junitxml=test-results/junit.xml
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trading-test-results
+          path: python/test-results/
+          if-no-files-found: ignore
