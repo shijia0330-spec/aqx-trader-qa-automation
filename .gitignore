@@ -1,0 +1,28 @@
+# Credentials
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / TypeScript
+node_modules/
+dist/
+
+# Playwright artefacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+*.trace.zip
+allure-results/
+allure-report/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
