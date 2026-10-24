@@ -2,6 +2,19 @@
 
 This document explains environment-dependent tests that may be skipped when their required state cannot be created safely on the AQX demo platform.
 
+## Market closure
+
+The `market_closed` tests run only when the selected instrument is closed. They verify that:
+
+- Market orders are blocked without creating a position.
+- Closed Buy/Sell controls or a clear closure message is shown with trading hours.
+- A pending order is either accepted under the broker configuration or clearly rejected.
+- An accepted pending order can be cancelled and is recorded as cancelled.
+
+These tests skip while the market is open. Conversely, tests that require live execution skip when the selected instrument is closed.
+
+The reopening-gap and expiry-through-reopening cases span separate market sessions. They remain documented in `docs/test-cases.md` as C-12 and C-13 and require a persisted two-phase setup before they can be safely automated.
+
 ## Selective bulk close by profit or loss
 
 The suite includes tests for:

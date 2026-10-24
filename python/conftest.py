@@ -51,11 +51,17 @@ def auth_state(browser: Browser, credentials: Settings, tmp_path_factory) -> Pat
 
 
 @pytest.fixture
-def trade_page(new_context, auth_state: Path, settings: Settings) -> TradePage:
+def trade_page(request, new_context, auth_state: Path, settings: Settings) -> TradePage:
     context = new_context(storage_state=auth_state)
     page = TradePage(context.new_page()).open()
     expect(page.account_type_tag).to_have_text(re.compile("demo", re.IGNORECASE))
     page.select_symbol(settings.symbol)
+    if (
+        request.node.get_closest_marker("trading")
+        and not request.node.get_closest_marker("market_closed")
+        and page.market_is_closed()
+    ):
+        pytest.skip(f"{settings.symbol} is closed; this test requires live trading")
     return page
 
 

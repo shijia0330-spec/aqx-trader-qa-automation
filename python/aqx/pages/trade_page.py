@@ -1,3 +1,6 @@
+import re
+from datetime import datetime
+
 from playwright.sync_api import Page, expect
 
 from aqx.models import Side
@@ -29,6 +32,29 @@ class TradePage:
         self.symbol_search.fill(symbol)
         self.page.get_by_text(symbol, exact=True).first.click()
         expect(self.symbol_overview).to_contain_text(symbol)
+
+    def market_is_closed(self) -> bool:
+        """Detect closure from the selected symbol's controls or server weekend."""
+        closed_message = self.page.get_by_text(
+            re.compile(r"(?:market|trading session).{0,30}closed|closed.{0,30}market", re.I)
+        )
+        if closed_message.count() and closed_message.last.is_visible():
+            return True
+
+        server_clock = self.page.get_by_text(re.compile(r"^Server Time\s*:"))
+        if server_clock.count():
+            match = re.search(
+                r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
+                server_clock.first.inner_text(),
+            )
+            server_time = (
+                datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+                if match
+                else None
+            )
+            if server_time and server_time.weekday() >= 5:
+                return True
+        return False
 
     def account_figures(self) -> tuple[str, str]:
         """Open the account menu and return (balance, free margin) as displayed."""

@@ -13,6 +13,7 @@ class OrderPanel:
         self.page = page
         self.one_click_tab = page.get_by_test_id("tab-one-click-trading")
         self.trade_tab = page.get_by_test_id("tab-trade")
+        self.specification_tab = page.get_by_test_id("tab-specification")
         self.buy_side = page.get_by_test_id("trade-button-order-buy")
         self.sell_side = page.get_by_test_id("trade-button-order-sell")
         self.live_buy_price = page.get_by_test_id("trade-live-buy-price")
@@ -41,6 +42,24 @@ class OrderPanel:
             return
         self.one_click_tab.click()
         self.one_click_buy.wait_for()
+
+    def open_specification_tab(self) -> None:
+        self.specification_tab.click()
+        expect(self.page.get_by_text("Trading Hours", exact=True).last).to_be_visible()
+
+    def trading_hours_text(self) -> str:
+        """Return the visible trading-hours section for the selected symbol."""
+        self.open_specification_tab()
+        heading = self.page.get_by_text("Trading Hours", exact=True).last
+        time_display = self.page.get_by_text("Time Display", exact=True).last
+        if not time_display.is_visible():
+            heading.click()
+        expect(time_display).to_be_visible()
+        section = heading.locator(
+            "xpath=ancestor::div[contains(., 'Time Display') and contains(., 'Monday')][1]"
+        )
+        expect(section).to_contain_text("Monday")
+        return section.inner_text().strip()
 
     def choose_side(self, side: Side) -> None:
         (self.buy_side if side is Side.BUY else self.sell_side).click()
@@ -84,6 +103,51 @@ class OrderPanel:
         self._choose_calendar_day(target)
         expect(self.expiry_date).to_have_text(target.isoformat())
         return target.isoformat()
+
+    def choose_specified_date_and_time_after(self, minutes: int) -> str:
+        """Select Specified Date and Time a few minutes after the shown clock.
+
+        Returns the expiry timestamp the pending list should show.
+        """
+        self.expiry.click()
+        option = self.page.get_by_text("Specified Date and Time", exact=True).last
+        expect(option).to_be_visible()
+        option.click()
+        expect(self.expiry_date).to_be_visible()
+        shown_date = datetime.strptime(self.expiry_date.inner_text().strip(), "%Y-%m-%d").date()
+        clock = self.expiry_time.inner_text().strip()
+        if clock.count(":") == 1:
+            clock = f"{clock}:00"
+        target = datetime.strptime(f"{shown_date.isoformat()} {clock}", "%Y-%m-%d %H:%M:%S")
+        target += timedelta(minutes=minutes)
+        if target.date() != shown_date:
+            self.expiry_date.click()
+            self._choose_calendar_day(target.date())
+            expect(self.expiry_date).to_have_text(target.date().isoformat())
+        self._set_expiry_clock(target.hour, target.minute)
+        return f"{target.date().isoformat()} {target.strftime('%H:%M:%S')}"
+
+    def _set_expiry_clock(self, hour: int, minute: int) -> None:
+        self.expiry_time.click()
+        ok = self.page.get_by_role("button", name="OK", exact=True)
+        expect(ok).to_be_visible()
+        picker = (
+            self.page.locator("div")
+            .filter(has=self.page.get_by_text("Hour", exact=True))
+            .filter(has=ok)
+            .last
+        )
+        self._choose_clock_value(picker, "Hour", f"{hour:02d}")
+        self._choose_clock_value(picker, "Minute", f"{minute:02d}")
+        ok.click()
+        expect(ok).to_be_hidden()
+        expect(self.expiry_time).to_have_text(f"{hour:02d}:{minute:02d}")
+
+    def _choose_clock_value(self, picker, label: str, value: str) -> None:
+        picker.get_by_text(label, exact=True).locator("xpath=following::*[1]").click()
+        option = self.page.get_by_text(re.compile(rf"^{re.escape(value)}$")).last
+        expect(option).to_be_visible()
+        option.click()
 
     def _choose_calendar_day(self, target: date) -> None:
         label = target.strftime("%B %Y")

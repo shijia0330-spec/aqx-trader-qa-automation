@@ -11,6 +11,8 @@ from aqx.pages.trade_page import TradePage
 
 SL_TP_POINTS = 100
 ORDER_VOLUME = "0.10"
+PENDING_POINTS = 200
+EXPIRY_MINUTES = 3
 
 
 def _amount(text: str) -> Decimal:
@@ -143,6 +145,59 @@ def test_close_profit_matches_balance_change(
     )
     balance_after = _amount(trade_page.account_figures()[0])
     assert balance_after == balance_before + realised
+
+
+@pytest.mark.p1
+@pytest.mark.trading
+def test_order_history_shows_filled_cancelled_and_expired_statuses(
+    trade_page: TradePage, order_tracker: OrderTracker, settings: Settings
+):
+    """L-05: order history records Filled, Cancelled, and Expired statuses."""
+    assets = trade_page.assets
+    filled_id = order_tracker.track_position(trade_page.place_market_order(Side.BUY, settings.volume))
+    assets.close_position(filled_id)
+    expect(assets.open_row(filled_id)).to_have_count(0)
+    order_tracker.forget_position(filled_id)
+    expect(assets.order_state(filled_id)).to_have_text(re.compile(r"filled", re.I))
+
+    cancelled_id = order_tracker.track_pending(
+        trade_page.place_buy_stop(settings.volume, PENDING_POINTS)
+    )
+    assets.delete_pending_order(cancelled_id)
+    expect(assets.pending_row(cancelled_id)).to_have_count(0)
+    order_tracker.forget_pending(cancelled_id)
+    expect(assets.order_state(cancelled_id)).to_have_text(re.compile(r"cancell?ed", re.I))
+
+    panel = trade_page.order_panel
+    before = assets.settled_pending_order_ids()
+    panel.open_trade_tab()
+    panel.choose_side(Side.BUY)
+    panel.choose_order_type("Stop")
+    expiry_at = panel.choose_specified_date_and_time_after(EXPIRY_MINUTES)
+    panel.pending_price.fill(panel.price_offset(Side.BUY, PENDING_POINTS))
+    panel.volume.fill(settings.volume)
+    panel.place()
+    expired_id = order_tracker.track_pending(
+        assets.wait_for_new_id(assets.pending_order_ids, before)
+    )
+    assert assets.pending_cell(expired_id, "expiry") == "Specified Date and Time"
+    assert assets.pending_cell(expired_id, "expiry-date") == expiry_at
+
+    assets.wait_until_ids_gone(
+        assets.pending_order_ids,
+        {expired_id},
+        timeout_s=EXPIRY_MINUTES * 60 + 90,
+    )
+    order_tracker.forget_pending(expired_id)
+    expect(assets.order_state(expired_id)).to_have_text(re.compile(r"expired", re.I))
+
+    history_ids = assets.history_order_ids()
+    assert filled_id in history_ids, f"Filled order {filled_id} missing from history"
+    assert cancelled_id in history_ids, f"Cancelled order {cancelled_id} missing from history"
+    assert expired_id in history_ids, f"Expired order {expired_id} missing from history"
+    assert history_ids.index(expired_id) < history_ids.index(cancelled_id) < history_ids.index(
+        filled_id
+    ), f"History is not newest-first: {history_ids[:12]}"
 
 
 @pytest.mark.p2

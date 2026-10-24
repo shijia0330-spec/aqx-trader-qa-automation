@@ -240,6 +240,7 @@
 #### L-05 Order history shows each final status <!-- P1 -->
 - Complete one filled order, one deleted pending order, and one expired pending order, then open order history.
 - The three records show Filled, Cancelled, and Expired, in correct time order (filter and pagination pending T-06).
+- Automated in `python/tests/test_records.py`; the expired order uses Specified Date and Time three minutes ahead.
 
 #### L-06 Deals show opening and closing trades <!-- P1 -->
 - Open and close one position, then open the deals/transactions view.
@@ -292,6 +293,9 @@
 - The UI shows a message that the order status is uncertain (not a success or a plain failure) and offers a way to verify the order, such as a link to Positions or order history, before the user retries.
 
 ### 10. Market closure
+
+Automation status: V-10, L-08, C-11, and X-07 are environment-gated in
+`python/tests/test_market_closure.py`. C-12 and C-13 remain multi-session scenarios.
 
 Assumptions used below, to be confirmed with the product owner through T-08:
 - A1: the demo broker configuration allows creating pending orders while the market is closed.

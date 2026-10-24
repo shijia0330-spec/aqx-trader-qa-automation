@@ -14,7 +14,7 @@ The suite covers market orders with Stop Loss and Take Profit, One-Click Trading
 
 | Folder | Stack | Status |
 |--------|-------|--------|
-| `python/` | Python, pytest, pytest-playwright | 34 tests: login, market orders with SL/TP, validation, insufficient margin, One-Click, Buy and Sell Stop, pending edit and specified expiry, position edit and partial/full close, bulk close and bulk delete, records and deals consistency, offline submit |
+| `python/` | Python, pytest, pytest-playwright | 39 tests: login, market orders with SL/TP, validation, insufficient margin, One-Click, Buy and Sell Stop, pending edit and specified expiry, position edit and partial/full close, bulk close and bulk delete, records and deals consistency, offline submit, and market closure |
 | `typescript/` | TypeScript, Playwright Test | Planned |
 | `docs/` | Markdown | Requirements, test cases, assumptions |
 
@@ -52,6 +52,7 @@ playwright install chromium
 pytest -m "not trading"                 # login and session tests only; places no orders
 AQX_ALLOW_TRADING=1 pytest -m p0        # P0 trading flows
 AQX_ALLOW_TRADING=1 pytest              # full suite
+AQX_ALLOW_TRADING=1 pytest -m market_closed  # run during a weekend closure
 pytest --headed --slowmo 300            # watch the browser
 ```
 
@@ -73,6 +74,8 @@ One-Click Trading is enabled on the demo account. With it enabled, Buy and Close
 
 - Tests run against a demo account with virtual funds.
 - Default instrument: EURUSD, which trades Monday to Friday. Cases marked "requires environment: market closure" can only run at the weekend.
+- Closure tests verify blocked market orders, trading hours, pending-order policy, and cancellation. They skip while the instrument is open; live-execution tests skip while it is closed.
+- Reopening-gap and expiry-through-reopening cases require state to persist across separate sessions and remain documented multi-session scenarios.
 - Observed on the demo account:
   - Pending orders are Stop only (Buy Stop / Sell Stop); expiry times are in UTC; new pending orders default to Good Till Canceled.
   - EURUSD minimum volume is 0.01 lots (XTIUSD, the default instrument, has a 0.1 minimum).

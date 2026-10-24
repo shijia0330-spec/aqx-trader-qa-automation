@@ -230,6 +230,14 @@ class AssetsPanel:
         )
         return row.get_by_test_id("asset-history-column-state")
 
+    def history_order_ids(self) -> list[str]:
+        """Order IDs in the visible Orders & Deals list, top to bottom."""
+        self.orders_and_deals_tab.scroll_into_view_if_needed()
+        self.orders_and_deals_tab.click()
+        expect(self.history_rows.first).to_be_visible()
+        cells = self.history_rows.get_by_test_id("asset-history-column-order-id")
+        return [text.strip() for text in cells.all_inner_texts() if text.strip()]
+
     def _ids_matching_tab_count(self, tab: Locator, id_cells: Locator) -> set[str]:
         tab.click()
         expect(tab).to_be_visible()

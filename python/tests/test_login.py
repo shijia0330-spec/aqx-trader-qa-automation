@@ -23,7 +23,7 @@ def test_wrong_password_stays_on_login_page(page: Page, credentials: Settings):
     login_page = LoginPage(page).open()
     login_page.login(credentials.login, "wrong-password-123")
 
-    page.wait_for_timeout(3_000)
+    expect(page.get_by_text("Invalid credentials, please try again.")).to_be_visible()
     expect(page).to_have_url(re.compile(rf"{LoginPage.PATH}$"))
     expect(login_page.submit).to_be_visible()
 
